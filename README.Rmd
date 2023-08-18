@@ -253,6 +253,31 @@ dispersion_tbl
 #> # … with 13,850 more rows
 ```
 
+To create a backwards dispersion model, simply set `direction = "backward"` in the `add_dispersion_params()` function and use an `end_time`
+that is earlier than the `start_time`. The emission source will be a receptor and the model will run backwards in time.
+
+
+```R
+backward_dispersion_model <-
+  create_dispersion_model() %>%
+  add_source(
+    name = "particle",
+    lat = 49.0, lon = -123.0, height = 50,
+    rate = 5, pdiam = 15, density = 1.5, shape_factor = 0.8,
+    release_start = lubridate::ymd_hm("2015-07-01 00:00"),
+    release_end = lubridate::ymd_hm("2015-07-01 00:00") + lubridate::hours(2)
+  ) %>%
+  add_dispersion_params(
+    start_time = lubridate::ymd_hm("2015-07-01 00:00"),
+    end_time = lubridate::ymd_hm("2015-07-01 00:00") - lubridate::hours(6),
+    direction = "backward", 
+    met_type = "reanalysis",
+    met_dir = here::here("met"),
+    exec_dir = here::here("out")
+  ) %>%
+  run_model()
+```
+
 #### Plotting Dispersion Data
 
 Dispersion data can also be plotted onto a map. Use the `dispersion_plot()` function with the dispersion model object.
