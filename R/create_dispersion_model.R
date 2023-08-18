@@ -11,6 +11,8 @@ create_dispersion_model <- function() {
       start_time = NULL,
       end_time = NULL,
       direction = "forward",
+      n_particles = 2500,
+      max_particles = 10000,
       met_type = NULL,
       sources = NULL,
       vert_motion = 0,
