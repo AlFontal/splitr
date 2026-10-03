@@ -8,10 +8,25 @@
 #' @param start_day the day that the model will initialize and run. This should
 #'   take the form of a single-length vector for a day (`"YYYY-MM-DD"`).
 #' @param start_hour a single daily hour as an integer hour (from `0` to `23`).
-#' @param particle_num The number of particles released by a source during each
-#'   release cycle.
-#' @param particle_max The maximum number of particles released by a source
-#'   during a model run.
+#' @param lat,lon,height The starting location(s). Vectors of the same length
+#'   release from several sources in a single model run; a single `height` is
+#'   used for all of them.
+#' @param particle_num The number of particles released during each release
+#'   cycle, shared among sources (HYSPLIT's `NUMPAR`). A negative value sets
+#'   the release rate directly, as `abs(particle_num)` particles per hour for
+#'   each source.
+#' @param particle_max The maximum number of particles carried at any time
+#'   during a model run (HYSPLIT's `MAXPAR`). No more particles are released
+#'   once it is reached.
+#' @param grid_res The resolution, in degrees, of the global concentration grid
+#'   that HYSPLIT writes to `output.bin`. splitr does not read this grid, but
+#'   HYSPLIT limits its time step by the grid spacing, so a coarser grid gives
+#'   longer time steps and much faster runs.
+#' @param time_step An optional fixed integration time step in minutes
+#'   (HYSPLIT's `DELT`). By default HYSPLIT sets the time step itself, and it
+#'   varies with wind speed and `grid_res`. Particles are released source by
+#'   source at each time step, so a fixed time step also fixes the order of
+#'   particle numbers.
 #' @param species A list of parameters corresponding to an emissions source..
 #' @param disp_name An optional, descriptive name for the output file
 #'   collection.
@@ -29,6 +44,8 @@ hysplit_dispersion <- function(lat = 49.263,
                                model_height = 20000,
                                particle_num = 2500,
                                particle_max = 10000,
+                               grid_res = 0.01,
+                               time_step = NULL,
                                species,
                                disp_name = NULL,
                                binary_path = NULL, 
@@ -70,7 +87,13 @@ hysplit_dispersion <- function(lat = 49.263,
   if (length(lat) != length(lon)) {
     stop("The coordinate vectors are not the same length.", call. = FALSE)
   }
-  
+
+  if (length(height) == 1) height <- rep(height, length(lat))
+
+  if (length(height) != length(lat)) {
+    stop("`height` must have length 1 or the same length as `lat`.", call. = FALSE)
+  }
+
   # Convert `start_day` to a `Date` object
   start_day <- lubridate::as_date(start_day)
   
@@ -92,16 +115,22 @@ hysplit_dispersion <- function(lat = 49.263,
   hysplit_config_init(dir = exec_dir)
   
   # Modify numbers of particles in the SETUP.CFG file
-  readLines(con = file.path(exec_dir, "SETUP.CFG")) %>%
+  setup_cfg <-
+    readLines(con = file.path(exec_dir, "SETUP.CFG")) %>%
     tidy_gsub(
-      pattern = " numpar = ([0-9]*),",
-      replacement = paste0(" numpar = ", particle_num, ",")
+      pattern = "^numpar = -?[0-9]*,",
+      replacement = paste0("numpar = ", particle_num, ",")
     ) %>%
     tidy_gsub(
-      pattern = " maxpar = ([0-9]*),",
-      replacement = paste0(" maxpar = ", particle_max, ",")
-    ) %>%
-    writeLines(con = file.path(exec_dir, "SETUP.CFG"))
+      pattern = "^maxpar = [0-9]*,",
+      replacement = paste0("maxpar = ", particle_max, ",")
+    )
+  
+  if (!is.null(time_step)) {
+    setup_cfg <- append(setup_cfg, paste0("delt = ", time_step, ","), after = 1)
+  }
+  
+  writeLines(setup_cfg, con = file.path(exec_dir, "SETUP.CFG"))
   
   # Define starting time parameters
   start_year_GMT <- to_short_year(start_day)
@@ -109,7 +138,7 @@ hysplit_dispersion <- function(lat = 49.263,
   start_day_GMT <- to_short_day(start_day)
   
   # Format `start_hour` if given as a numeric value
-  if (inherits(start_hour, "numeric")) {
+  if (is.numeric(start_hour)) {
     start_hour <- formatC(sort(start_hour), width = 2, flag = 0)
   }
   
@@ -150,6 +179,7 @@ hysplit_dispersion <- function(lat = 49.263,
     model_height = model_height,
     met_files = met_files,
     species = species,
+    grid_res = grid_res,
     output_filename = output_filename,
     system_type = system_type,
     met_dir = met_dir,

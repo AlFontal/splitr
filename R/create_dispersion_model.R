@@ -13,6 +13,7 @@ create_dispersion_model <- function() {
       direction = "forward",
       n_particles = 2500,
       max_particles = 10000,
+      grid_res = 0.01,
       met_type = NULL,
       sources = NULL,
       vert_motion = 0,

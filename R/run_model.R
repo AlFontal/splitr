@@ -42,14 +42,25 @@ run_model <- function(model) {
   if (inherits(model, "dispersion_model")) {
     
     n_model_runs <- seq(nrow(model$sources))
-    
+
+    # Get time window for observations
+    start_day <- model$start_time %>% lubridate::floor_date()
+    start_hour <- model$start_time %>% lubridate::hour()
+    duration <- as.numeric(difftime(model$end_time, model$start_time, units = "hours"))
+
+    if ((model$direction == "backward") != (duration < 0)) {
+      warning(
+        "`end_time` is ", ifelse(duration < 0, "before", "after"), " `start_time` ",
+        "but `direction` is \"", model$direction, "\"; running ", model$direction,
+        " for ", abs(duration), " hours.",
+        call. = FALSE
+      )
+    }
+
+    disp_dfs <- list()
+
     for (i in n_model_runs) {
-      
-      # Get time window for observations
-      start_day <- model$start_time %>% lubridate::floor_date()
-      start_hour <- model$start_time %>% lubridate::hour() 
-      duration <- as.numeric(difftime(model$end_time, model$start_time, units = "hours"))
-    
+
       # Get ith source parameters
       lat <- model$sources[i, ][["lat"]]
       lon <- model$sources[i, ][["lon"]]
@@ -79,6 +90,8 @@ run_model <- function(model) {
           model_height = model$model_height,
           particle_num = model$n_particles,
           particle_max = model$max_particles,
+          grid_res = model$grid_res,
+          time_step = model$time_step,
           species = species_list,
           exec_dir = model$exec_dir,
           met_dir = model$met_dir,
@@ -88,9 +101,11 @@ run_model <- function(model) {
           clean_up = model$clean_up
         )
       
-      model$disp_df <- disp_df
+      disp_dfs[[i]] <- dplyr::mutate(disp_df, source = i)
     }
-    
-    return(model) 
+
+    model$disp_df <- dplyr::bind_rows(disp_dfs)
+
+    return(model)
   }
 }

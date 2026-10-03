@@ -102,6 +102,8 @@ add_dispersion_params <- function(model,
                                   direction = NULL,
                                   n_particles = NULL,
                                   max_particles = NULL,
+                                  grid_res = NULL,
+                                  time_step = NULL,
                                   met_type = NULL,
                                   vert_motion = NULL,
                                   model_height = NULL,
@@ -122,6 +124,22 @@ add_dispersion_params <- function(model,
   
   if (!is.null(direction)) {
     model$direction <- direction
+  }
+  
+  if (!is.null(n_particles)) {
+    model$n_particles <- n_particles
+  }
+  
+  if (!is.null(max_particles)) {
+    model$max_particles <- max_particles
+  }
+  
+  if (!is.null(grid_res)) {
+    model$grid_res <- grid_res
+  }
+  
+  if (!is.null(time_step)) {
+    model$time_step <- time_step
   }
   
   if (!is.null(met_type)) {
@@ -146,6 +164,10 @@ add_dispersion_params <- function(model,
   
   if (!is.null(binary_path)) {
     model$binary_path <- binary_path
+  }
+  
+  if (!is.null(binary_name)) {
+    model$binary_name <- binary_name
   }
   
   if (!is.null(softrun)) {

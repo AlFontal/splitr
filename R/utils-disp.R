@@ -13,6 +13,7 @@ write_disp_control_file <- function(start_day,
                                     model_height,
                                     met_files,
                                     species,
+                                    grid_res = 0.01,
                                     output_filename,
                                     system_type,
                                     met_dir,
@@ -22,9 +23,9 @@ write_disp_control_file <- function(start_day,
     paste0(
       start_year_GMT, " ", start_month_GMT, " ",
       start_day_GMT, " ", start_hour, "\n",
-      "1\n",
-      lat, " ", lon, " ", height, "\n",
-      duration, "\n",
+      length(lat), "\n",
+      paste(lat, lon, height, collapse = "\n"), "\n",
+      ifelse(direction == "backward", -abs(duration), abs(duration)), "\n",
       vert_motion, "\n",
       model_height, "\n",
       length(met_files), "\n",
@@ -33,7 +34,8 @@ write_disp_control_file <- function(start_day,
   
   i <- 1
   
-  release_duration <- as.numeric(species$release_end - species$release_start)
+  release_duration <-
+    as.numeric(difftime(species$release_end, species$release_start, units = "hours"))
   
   emission_block <- 
     paste0(
@@ -49,20 +51,31 @@ write_disp_control_file <- function(start_day,
   end_month_GMT <- to_short_month(species$release_end)
   end_day_GMT <- to_short_day(species$release_end)
 
+  # Backward runs need the sampling stop before the start; zeros give HYSPLIT's
+  # defaults (start of the run, and one year before it)
+  if (direction == "backward") {
+    sampling_times <- "00 00 00 00 00\n00 00 00 00 00\n"
+  } else {
+    sampling_times <-
+      paste0(
+        start_year_GMT, " ", start_month_GMT, " ",
+        start_day_GMT, " ", start_hour, " 00", "\n",
+        end_year_GMT, " ", end_month_GMT, " ",
+        end_day_GMT, " ", "23 00", " \n"
+      )
+  }
+
   grid_block <-
     paste0(
       "1", "\n",
       "0.0 0.0", "\n",
-      "0.01 0.01", "\n",
+      grid_res, " ", grid_res, "\n",
       "180 360", "\n",
       "./", "\n",
       "output.bin", "\n",
       "1", "\n",
       "0.0", "\n",
-      start_year_GMT, " ", start_month_GMT, " ",
-      start_day_GMT, " ", start_hour, " 00", "\n",
-      end_year_GMT, " ", end_month_GMT, " ",
-      end_day_GMT, " ", "23 00", " \n",
+      sampling_times,
       "00 01 00", "\n"
     )
 
